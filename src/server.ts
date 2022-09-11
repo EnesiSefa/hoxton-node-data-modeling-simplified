@@ -9,45 +9,21 @@ app.use(express.json());
 
 const port = 4000;
 
+app.get("/", (req, res) => {
+  res.send(`WELCOME`);
+});
+
+//----------------------------------- Applicants Part
 const getAllApplicants = db.prepare(`
 SELECT * FROM applicants
-`);
-
-const getAllInterviewers = db.prepare(`
-SELECT * FROM interviewers
-`);
-
-const getAllInterviews = db.prepare(`
-SELECT * FROM interviews
 `);
 
 const getApplicantsByIdNoQuery = db.prepare(`
 SELECT * FROM applicants WHERE id = ?;
 `);
 
-const getInterviewsByIdNoQuery = db.prepare(`
-SELECT * FROM interviews WHERE id = ?;
-`);
-const getInterviewsByAllIdNoQuery = db.prepare(`
-SELECT * FROM interviews WHERE applicantsId = ? AND interviewersId = ?;
-`);
 const getApplicantsByIdToQuery = db.prepare(`
 SELECT * FROM applicants WHERE id = @id;
-`);
-const getInterviewersByIdNoQuery = db.prepare(`
-SELECT * FROM interviewers WHERE id = ?;
-`);
-
-const getInterviewersById = db.prepare(`
-SELECT * FROM interviewers WHERE id = @id;
-`);
-
-const getInterviewsForInterviewer = db.prepare(`
-SELECT * FROM interviews WHERE interviewersId = @interviewersId;
-`);
-
-const getInterviewsForApplicants = db.prepare(`
-SELECT * FROM interviews WHERE applicantsId = @applicantsId;
 `);
 
 const getApplicantsforInterviewers = db.prepare(`
@@ -56,52 +32,12 @@ JOIN interviews ON applicants.id = interviews.applicantsId
 WHERE interviews.interviewersId = @interviewersId;
 `);
 
-const getInterviewersforApplicants = db.prepare(`
-SELECT interviewers .* FROM interviewers
-JOIN interviews ON interviewers.id = interviews.interviewersId
-WHERE interviews.applicantsId = @applicantsId;
-`);
-
 const postApplicants = db.prepare(`
 INSERT INTO applicants (name,email) VALUES (@name, @email);
 `);
 
-const postInterviews = db.prepare(`
-INSERT INTO interviews (applicantsId,interviewersId,interview,date) VALUES (@applicantsId,@interviewersId,@interview,@date);
-`);
-
-app.get("/", (req, res) => {
-  res.send(`WELCOME`);
-});
-
-app.get("/interviewers", (req, res) => {
-  res.send(getAllInterviewers.all());
-});
-
 app.get("/applicants", (req, res) => {
   res.send(getAllApplicants.all());
-});
-
-app.get("/interviews", (req, res) => {
-  res.send(getAllInterviews.all());
-});
-
-app.get("/interviewers/:id", (req, res) => {
-  const interviewers = getInterviewersById.get(req.params);
-  if (interviewers) {
-    interviewers.interviews = getInterviewsForInterviewer.all({
-      interviewersId: interviewers.id,
-    });
-    interviewers.applicants = getApplicantsforInterviewers.all({
-      interviewersId: interviewers.id,
-    });
-
-    res.send(interviewers);
-  } else {
-    res.status(404).send({ error: "interviewers not found" });
-  }
-
-  res.send(interviewers.all());
 });
 
 app.get("/applicants/:id", (req, res) => {
@@ -120,14 +56,6 @@ app.get("/applicants/:id", (req, res) => {
   }
 
   res.send(applicants.all());
-});
-
-app.get("/applicants/:id", (req, res) => {
-  res.send(getAllApplicants.all());
-});
-
-app.get("/interviews/:id", (req, res) => {
-  res.send(getAllInterviews.all());
 });
 
 app.post("/applicants", (req, res) => {
@@ -156,6 +84,81 @@ app.post("/applicants", (req, res) => {
   }
 });
 
+//---------------------- Interviewers Part
+const getAllInterviewers = db.prepare(`
+SELECT * FROM interviewers
+`);
+
+const getInterviewersByIdNoQuery = db.prepare(`
+SELECT * FROM interviewers WHERE id = ?;
+`);
+
+const getInterviewersByIdToQuery = db.prepare(`
+SELECT * FROM interviewers WHERE id = @id;
+`);
+
+const getInterviewsForApplicants = db.prepare(`
+SELECT * FROM interviews WHERE applicantsId = @applicantsId;
+`);
+
+const getInterviewersforApplicants = db.prepare(`
+SELECT interviewers .* FROM interviewers
+JOIN interviews ON interviewers.id = interviews.interviewersId
+WHERE interviews.applicantsId = @applicantsId;
+`);
+
+app.get("/interviewers", (req, res) => {
+  res.send(getAllInterviewers.all());
+});
+
+app.get("/interviewers/:id", (req, res) => {
+  const interviewers = getInterviewersByIdToQuery.get(req.params);
+  if (interviewers) {
+    interviewers.interviews = getInterviewsForInterviewer.all({
+      interviewersId: interviewers.id,
+    });
+    interviewers.applicants = getApplicantsforInterviewers.all({
+      interviewersId: interviewers.id,
+    });
+
+    res.send(interviewers);
+  } else {
+    res.status(404).send({ error: "interviewers not found" });
+  }
+
+  res.send(interviewers.all());
+});
+
+//------------------------------------ Interviews Part
+
+const getAllInterviews = db.prepare(`
+SELECT * FROM interviews
+`);
+
+const getInterviewsByIdNoQuery = db.prepare(`
+SELECT * FROM interviews WHERE id = ?;
+`);
+
+const getInterviewsByAllIdNoQuery = db.prepare(`
+SELECT * FROM interviews WHERE applicantsId = ? AND interviewersId = ?;
+`);
+
+const getInterviewsForInterviewer = db.prepare(`
+SELECT * FROM interviews WHERE interviewersId = @interviewersId;
+`);
+
+const postInterviews = db.prepare(`
+INSERT INTO interviews (applicantsId,interviewersId,interview,date) VALUES (@applicantsId,@interviewersId,@interview,@date);
+`);
+
+app.get("/interviews", (req, res) => {
+  res.send(getAllInterviews.all());
+});
+
+app.get("/interviews/:id", (req, res) => {
+  res.send(getAllInterviews.all());
+});
+
 app.post("/interviews", (req, res) => {
   let errors: string[] = [];
   const { applicantsId, interviewersId, interview, date } = req.body;
@@ -178,8 +181,16 @@ app.post("/interviews", (req, res) => {
   const applicantsFound = getApplicantsByIdNoQuery.get(applicantsId);
   const interviewersFound = getInterviewersByIdNoQuery.get(interviewersId);
   // if there are no errors, create the item
-  const interviewsfound = getInterviewsByAllIdNoQuery.get(applicantsId,interviewersId)
-  if (applicantsFound && interviewersFound && errors.length === 0 && !interviewsfound) {
+  const interviewsfound = getInterviewsByAllIdNoQuery.get(
+    applicantsId,
+    interviewersId
+  );
+  if (
+    applicantsFound &&
+    interviewersFound &&
+    errors.length === 0 &&
+    !interviewsfound
+  ) {
     const newItem = postInterviews.run({
       applicantsId,
       interviewersId,
@@ -194,10 +205,30 @@ app.post("/interviews", (req, res) => {
     res.send(interviewsCreated);
   } else {
     // if there are any errors...
-    res.status(400).send({ errors: "wrong input or incorrect id or the applicants/interviewers already exists" });
+    res.status(400).send({
+      errors:
+        "wrong input or incorrect id or the applicants/interviewers already exists",
+    });
   }
 });
 
+//------------------------- Companies part
+const getAllCompanies = db.prepare(`
+SELECT * FROM companies
+`);
+
+const getCompaniesById = db.prepare(`
+SELECT * FROM companies WHERE id = ?
+`);
+
+app.get("/companies", (req, res) => {
+  res.send(getAllCompanies);
+});
+app.get("/companies/:id", (req, res) => {
+  res.send(getCompaniesById);
+});
+
+//////////////////////
 app.listen(port, () => {
   console.log(`
   App running: http://localhost:${port}`);

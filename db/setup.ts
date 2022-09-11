@@ -28,6 +28,11 @@ const interviews = [
     date: "11/10/2021",
   },
 ];
+
+const companies = [
+  { id: 1, name: "Google", city: "Mountain View" },
+  { id: 2, name: "Youtube", city: "San Bruno" },
+];
 // Applicants Setup
 const deleteApplicantsTable = db.prepare(`
  DROP TABLE IF EXISTS applicants
@@ -110,4 +115,34 @@ for (let item of interviews)
     interviewersId: item.interviewersId,
     interview: item.interview,
     date: item.date,
+  });
+
+// Company Setup
+
+const deleteCompaniesTable = db.prepare(`
+DROP TABLE IF EXISTS companies
+`);
+deleteCompaniesTable.run();
+
+const createCompaniesTable = db.prepare(`
+CREATE TABLE IF NOT EXISTS companies(
+    id INTEGER,
+    city TEXT NOT NULL,
+    name TEXT NOT NULL,
+    PRIMARY KEY (id)
+)`);
+
+createCompaniesTable.run();
+
+const createCompaniesRow = db.prepare(`
+   INSERT INTO companies
+   (city,name) 
+   VALUES 
+   (@city,@name)
+`);
+
+for (let company of companies)
+  createCompaniesRow.run({
+    city: company.city,
+    name: company.name,
   });
